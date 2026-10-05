@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, isJidBroadcast } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
 const fs = require('fs');
@@ -11,6 +11,48 @@ app.use(express.json());
 const PORT = 3001;
 const AUTH_DIR = path.join(__dirname, 'baileys_auth');
 const CONFIG_FILE = path.join(__dirname, 'whatsapp_config.json');
+
+// Intercepta e auto-corrige sessões desincronizadas do libsignal ("Bad MAC")
+const cleanedSessions = new Set();
+function cleanCorruptedSession(identifier) {
+  if (!identifier || cleanedSessions.has(identifier)) return;
+  cleanedSessions.add(identifier);
+  setTimeout(() => cleanedSessions.delete(identifier), 30000);
+
+  try {
+    if (fs.existsSync(AUTH_DIR)) {
+      const files = fs.readdirSync(AUTH_DIR);
+      let count = 0;
+      for (const file of files) {
+        if (file.includes(identifier) && (file.startsWith('session-') || file.startsWith('sender-key-') || file.startsWith('identity-key-'))) {
+          try {
+            fs.unlinkSync(path.join(AUTH_DIR, file));
+            count++;
+          } catch (e) {}
+        }
+      }
+      if (count > 0) {
+        console.log(`[Baileys Crypto] 🔄 Chaves desincronizadas recicladas para ${identifier} (${count} arquivos).`);
+      }
+    }
+  } catch (e) {}
+}
+
+const originalConsoleError = console.error;
+console.error = function (...args) {
+  const fullText = args.map(a => (typeof a === 'object' && a?.stack ? a.stack : String(a))).join(' ');
+
+  if (fullText.includes('Bad MAC') || fullText.includes('Failed to decrypt message with any known session')) {
+    const match = fullText.match(/(\d{7,16})/);
+    if (match) {
+      cleanCorruptedSession(match[1]);
+    }
+    // Suprime o stack trace barulhento do libsignal no terminal
+    return;
+  }
+
+  originalConsoleError.apply(console, args);
+};
 
 let sock = null;
 let currentQR = null;
@@ -63,6 +105,7 @@ async function startWhatsApp() {
     browser: ['Bybit Bot', 'Chrome', '120.0.0'],
     syncFullHistory: false,
     shouldSyncHistoryMessage: () => false,
+    shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
     markOnlineOnConnect: true,
     connectTimeoutMs: 60000,
     keepAliveIntervalMs: 15000,
