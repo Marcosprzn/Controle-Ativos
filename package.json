@@ -1,0 +1,19 @@
+{
+  "name": "fin",
+  "version": "1.0.0",
+  "description": "Bot profissional em Python para monitoramento de rompimentos no par **BTCUSDT** (e outros criptoativos) na **Bybit**, disparando alertas em tempo real no **WhatsApp**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "express": "^5.2.1",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4"
+  }
+}

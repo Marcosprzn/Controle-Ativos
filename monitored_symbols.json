@@ -1,0 +1,26 @@
+{
+  "all_symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "SUIUSDT",
+    "AAVEUSDT",
+    "ONDOUSDT",
+    "DOGEUSDT",
+    "ENAUSDT",
+    "SOLUSDT"
+  ],
+  "active_symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "SUIUSDT",
+    "AAVEUSDT",
+    "ONDOUSDT",
+    "DOGEUSDT",
+    "ENAUSDT",
+    "SOLUSDT"
+  ]
+}

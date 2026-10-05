@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bybit Triple EMA Bot | Dashboard</title>
+  
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- TradingView Lightweight Charts CDN -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+  <!-- CSS Customizado -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Navbar Superior -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>BYBIT TRIPLE EMA BOT</h1>
+        <span>Monitoramento de Rompimento: EMA 10 (Verde) / 20 (Dourada) / 200 (Roxa)</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <div class="status-badge" id="bot-status-badge">
+        <span class="status-pulse"></span>
+        <span id="bot-status-text">Monitorando Bybit</span>
+      </div>
+
+      <button class="btn btn-outline" id="btn-whatsapp-modal" title="Conectar ou gerenciar WhatsApp via QR Code">
+        📱 <span id="wa-btn-label">WhatsApp (QR Code)</span>
+        <span id="wa-badge-status" class="status-indicator-dot"></span>
+      </button>
+
+      <button class="btn btn-outline" id="btn-refresh" title="Atualizar agora">
+        🔄 Atualizar
+      </button>
+
+      <button class="btn btn-whatsapp" id="btn-test-whatsapp" title="Enviar teste para +5581991798590">
+        📲 Testar Envio
+      </button>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-container">
+    
+    <!-- Seletor Principal de Estratégia -->
+    <section class="strategy-banner-container">
+      <div class="strategy-banner">
+        <div class="strategy-banner-title">
+          <span class="strategy-pulse"></span>
+          <span>ESTRATÉGIA ATIVA:</span>
+        </div>
+        <div class="strategy-tabs">
+          <button class="strategy-tab active" id="tab-ema20vol" data-strat="ema20_volume" title="Estratégia do Cliente: ta.ema(close, 20) + ta.sma(volume, 20)">
+            <span class="tab-icon">⚡</span>
+            <div class="tab-info">
+              <span class="tab-name">Rompimento MME 20 + Volume</span>
+              <span class="tab-desc">MME 20 Preço (Azul) + SMA 20 Volume</span>
+            </div>
+            <span class="tab-tag client-tag">Cliente</span>
+          </button>
+          
+          <button class="strategy-tab" id="tab-tripleema" data-strat="triple_ema" title="Estratégia de 3 EMAs: 10/9 e 20 rompendo 200">
+            <span class="tab-icon">📈</span>
+            <div class="tab-info">
+              <span class="tab-name">Triple EMA (10, 20, 200)</span>
+              <span class="tab-desc">EMAs 10 e 20 rompendo EMA 200</span>
+            </div>
+            <span class="tab-tag">Original</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cards de Resumo Rápido -->
+    <section class="stats-grid">
+      <div class="stat-card accent-btc">
+        <div class="stat-header">
+          <span class="stat-title">🪙 Preço <span id="card-symbol-title">BTCUSDT</span> (Bybit)</span>
+          <span class="badge" id="trend-badge">---</span>
+        </div>
+        <div class="stat-value" id="card-btc-price">$ --,---.--</div>
+        <div class="stat-sub" id="card-last-update">Última atualização: Aguardando...</div>
+      </div>
+
+      <div class="stat-card accent-e10" id="card-slot-2">
+        <div class="stat-header">
+          <span class="stat-title" id="card-title-2">🔵 MME 20 (Preço)</span>
+          <span class="badge badge-neutral" id="card-badge-2">Média 20</span>
+        </div>
+        <div class="stat-value" id="card-val-2" style="color: var(--accent-blue);">$ --,---.--</div>
+        <div class="stat-sub" id="card-sub-2">ta.ema(close, 20)</div>
+      </div>
+
+      <div class="stat-card accent-e20" id="card-slot-3">
+        <div class="stat-header">
+          <span class="stat-title" id="card-title-3">📊 Volume Atual</span>
+          <span class="badge badge-neutral" id="card-badge-3">Candle</span>
+        </div>
+        <div class="stat-value" id="card-val-3" style="color: var(--accent-gold);">-- BTC</div>
+        <div class="stat-sub" id="card-sub-3">Volume financeiro</div>
+      </div>
+
+      <div class="stat-card accent-e200" id="card-slot-4">
+        <div class="stat-header">
+          <span class="stat-title" id="card-title-4">📈 Média 20 Volume</span>
+          <span class="badge badge-neutral" id="card-badge-4">SMA 20 Vol</span>
+        </div>
+        <div class="stat-value" id="card-val-4" style="color: var(--accent-purple);">-- BTC</div>
+        <div class="stat-sub" id="card-sub-4">Validação: Aguardando...</div>
+      </div>
+    </section>
+
+    <!-- Seção do Gráfico Interativo -->
+    <section class="chart-section">
+      <div class="chart-header">
+        <div class="chart-title-group">
+          <span class="chart-title" id="chart-main-title">Gráfico de Velas & Indicadores em Tempo Real</span>
+          <div class="legend-group" id="chart-legends">
+            <!-- As legendas mudam conforme a estratégia ativa -->
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <!-- Seletor de Ativo Dinâmico com Gerenciador -->
+          <div class="symbol-control-wrapper" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <div class="tf-selector symbol-selector" id="symbol-selector" title="Selecione o ativo para visualizar no gráfico e tabela">
+              <!-- Botões gerados dinamicamente via JS -->
+              <button class="symbol-btn active" data-symbol="BTCUSDT">BTC <span class="sym-dot">🟢</span></button>
+            </div>
+            <button class="btn btn-outline btn-manage-syms" id="btn-open-symbols-modal" title="Adicionar novos pares ou escolher quais monitorar no WhatsApp" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
+              <span>⚙️</span> Ativos
+            </button>
+          </div>
+
+          <!-- Seletor de Fuso Horário -->
+          <div class="tf-selector" id="timezone-selector" title="Ajuste o fuso horário para sincronizar com a Bybit">
+            <button class="tz-btn" data-offset="0" title="Horário Universal (UTC)">UTC</button>
+            <button class="tz-btn active" data-offset="-2" title="Fuso da sua Bybit (15h)">Bybit (15h)</button>
+            <button class="tz-btn" data-offset="-3" title="Horário de Brasília (14h)">Brasília (14h)</button>
+          </div>
+
+          <!-- Seletor de Mercado: Futuros ou Spot -->
+          <div class="tf-selector" id="market-selector" title="Escolha se deseja ver o gráfico de Futuros Perpétuos ou À Vista">
+            <button class="market-btn active" data-cat="linear">🔥 Futuros</button>
+            <button class="market-btn" data-cat="spot">💎 Spot</button>
+          </div>
+
+          <!-- Seletor de Média Rápida (para Triple EMA) -->
+          <div class="tf-selector" id="ema-selector" title="Alternar entre EMA 10 e EMA 9" style="display: none;">
+            <button class="ema-btn active" data-ema="10">EMA 10</button>
+            <button class="ema-btn" data-ema="9">EMA 9</button>
+          </div>
+
+          <!-- Barra Rápida de Ativação do Monitoramento WhatsApp -->
+          <div class="tf-monitor-bar" id="tf-monitor-bar" title="Clique para ligar ou desligar o monitoramento no WhatsApp para cada gráfico">
+            <span class="monitor-bar-label">🔔 WhatsApp:</span>
+            <button class="mon-pill paused" data-mon-tf="5" title="Ativar/Pausar alertas de 5m">5m <span class="dot">⚪</span></button>
+            <button class="mon-pill paused" data-mon-tf="10" title="Ativar/Pausar alertas de 10m">10m <span class="dot">⚪</span></button>
+            <button class="mon-pill active" data-mon-tf="30" title="Ativar/Pausar alertas de 30m">30m <span class="dot">🟢</span></button>
+            <button class="mon-pill active" data-mon-tf="60" title="Ativar/Pausar alertas de 1h">1h <span class="dot">🟢</span></button>
+          </div>
+
+          <!-- Seletor de Timeframe do Gráfico -->
+          <div class="tf-selector" id="timeframe-selector">
+            <button class="tf-btn tf-dimmed" data-tf="5" title="5 Minutos (Pausado no WhatsApp)">5m</button>
+            <button class="tf-btn tf-dimmed" data-tf="10" title="10 Minutos (Pausado no WhatsApp)">10m</button>
+            <button class="tf-btn active" data-tf="30" title="30 Minutos (Monitorando WhatsApp)">30m</button>
+            <button class="tf-btn" data-tf="60" title="1 Hora (Monitorando WhatsApp)">1h</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="chart-container">
+        <div class="chart-loading" id="chart-loader">
+          <span>Carregando dados da Bybit...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid Inferior: Tabela Multi-Timeframe e Histórico de Alertas -->
+    <section class="dashboard-grid">
+      
+      <!-- Painel Esquerdo: Tabela Multi-Timeframe Ao Vivo -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <div>
+            <span id="table-panel-title">📊 Monitoramento Multi-Timeframe Paralelo</span>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 3px;">
+              Clique nos botões de status para ativar ou pausar alertas no WhatsApp de cada gráfico
+            </div>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Auto-refresh a cada 6s</span>
+        </div>
+        <div class="table-container">
+          <table class="custom-table" id="status-table">
+            <thead id="table-head">
+              <!-- Gerado dinamicamente pelo JS -->
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  Carregando timeframes da Bybit...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Painel Direito: Alertas Históricos Detectados -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>⚡ Rompimentos Recentes</span>
+          <button class="btn btn-outline" id="btn-refresh-history" style="padding: 4px 10px; font-size: 0.75rem;">
+            Atualizar
+          </button>
+        </div>
+        <div class="alerts-list" id="alerts-container">
+          <div style="text-align: center; color: var(--text-muted); padding: 24px;">
+            Carregando histórico...
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Modal de Conexão WhatsApp com Baileys -->
+  <div class="modal-overlay" id="wa-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span style="font-size: 1.3rem;">📱</span>
+          <div>
+            <h3>Conectar WhatsApp (Baileys)</h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Pareamento direto sem custos por QR Code</span>
+          </div>
+        </div>
+        <button class="modal-close" id="btn-close-modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Estado 1: Aguardando leitura do QR Code -->
+        <div id="wa-scan-view" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+          <div class="qr-box" id="qr-box">
+            <img id="qr-code-img" src="" alt="QR Code WhatsApp" style="display: none; width: 260px; height: 260px; border-radius: 8px;">
+            <div id="qr-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 260px; height: 260px; gap: 10px; color: var(--accent-cyan);">
+              <span class="status-pulse" style="width: 16px; height: 16px;"></span>
+              <span style="font-size: 0.85rem;">Gerando QR Code...</span>
+            </div>
+          </div>
+
+          <div class="qr-instructions">
+            <p><strong>Como conectar no seu celular:</strong></p>
+            <ol>
+              <li>Abra o <strong>WhatsApp</strong> no celular</li>
+              <li>Acesse <strong>Configurações</strong> ou <strong>Menu ⋮</strong></li>
+              <li>Toque em <strong>Aparelhos Conectados</strong> &gt; <strong>Conectar um aparelho</strong></li>
+              <li>Aponte a câmera para o QR Code acima</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Estado 2: Conectado com sucesso -->
+        <div id="wa-connected-view" style="display: none; flex-direction: column; align-items: center; gap: 18px; padding: 20px 0;">
+          <div class="connected-badge-big">
+            <span style="font-size: 2.2rem;">✅</span>
+          </div>
+          <div style="text-align: center;">
+            <h4 style="font-size: 1.15rem; color: var(--accent-green); margin-bottom: 4px;">WhatsApp Conectado com Sucesso!</h4>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">Número conectado: <strong id="wa-connected-number" style="color: var(--text-primary);">+--</strong></p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Os alertas de rompimento estão sendo disparados automaticamente para este número.</p>
+          </div>
+          <button class="btn btn-outline" id="btn-disconnect-wa" style="border-color: var(--accent-red); color: var(--accent-red);">
+            🛑 Desconectar Sessão
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Gerenciamento de Ativos Monitorados (Bybit & WhatsApp) -->
+  <div class="modal-overlay" id="symbols-modal">
+    <div class="modal-container" style="max-width: 580px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span style="font-size: 1.3rem;">🪙</span>
+          <div>
+            <h3>Gerenciar Ativos Monitorados</h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Escolha quais criptos o bot varre e envia alertas no WhatsApp</span>
+          </div>
+        </div>
+        <button class="modal-close" id="btn-close-symbols-modal">&times;</button>
+      </div>
+
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 18px;">
+        <!-- Formulário para Adicionar Novo Ativo -->
+        <div class="add-symbol-card">
+          <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+            <span>➕</span> Adicionar Criptomoeda / Par Bybit
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-new-symbol" class="custom-input" placeholder="Ex: SOLUSDT, XRP, ADA, AVAX..." style="flex: 1; text-transform: uppercase;" />
+            <button class="btn btn-primary" id="btn-submit-add-symbol" style="white-space: nowrap;">
+              ➕ Adicionar
+            </button>
+          </div>
+          <div class="quick-chips-row" style="margin-top: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 0.74rem; color: var(--text-muted);">Sugestões rápidas:</span>
+            <button class="chip-btn" data-sym="SOLUSDT">+ SOL</button>
+            <button class="chip-btn" data-sym="XRPUSDT">+ XRP</button>
+            <button class="chip-btn" data-sym="ADAUSDT">+ ADA</button>
+            <button class="chip-btn" data-sym="AVAXUSDT">+ AVAX</button>
+            <button class="chip-btn" data-sym="NEARUSDT">+ NEAR</button>
+            <button class="chip-btn" data-sym="BNBUSDT">+ BNB</button>
+          </div>
+        </div>
+
+        <!-- Lista de Ativos Cadastrados -->
+        <div class="symbols-list-wrapper">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">
+              📋 Ativos Cadastrados (<span id="modal-symbols-count">0</span>)
+            </span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">
+              Clique no botão verde/cinza para ligar/desligar alertas
+            </span>
+          </div>
+
+          <div class="symbols-modal-list" id="symbols-modal-list">
+            <!-- Gerado dinamicamente via JS -->
+            <div style="text-align: center; color: var(--text-muted); padding: 16px;">Carregando ativos...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notificação Toast -->
+  <div id="toast">🔔 Mensagem do sistema</div>
+
+  <!-- Rodapé -->
+  <footer>
+    Bybit Triple EMA Bot &bull; Monitorando BTCUSDT &bull; Alertas automáticos via WhatsApp: +55 (81) 99179-8590
+  </footer>
+
+  <!-- Script JS do Dashboard -->
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Ambientes e Segredos
+.env
+*.env.local
+baileys_auth/
+baileys_auth*
+
+# Dependências
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Logs e Estados Temporários
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+last_signals.json
+
+# IDEs e Sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
