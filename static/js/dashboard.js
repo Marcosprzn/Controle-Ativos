@@ -432,6 +432,24 @@ function updateLegendsAndControls() {
         </div>
       `;
     }
+  } else if (currentStrategy === "ema200_volume") {
+    if (emaSelector) emaSelector.style.display = "none";
+    if (legendBox) {
+      legendBox.innerHTML = `
+        <div class="legend-item">
+          <span class="legend-line e200"></span>
+          <span>MME 200 (Roxa) - Preço</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-line vol-hist"></span>
+          <span>Volume</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-line e20"></span>
+          <span>SMA 20 (Volume)</span>
+        </div>
+      `;
+    }
   } else {
     if (emaSelector) emaSelector.style.display = "flex";
     if (legendBox) {
@@ -475,6 +493,20 @@ async function loadChartData(tf, showLoader = true) {
         
         ema10Series.setData([]);
         ema200Series.setData([]);
+
+        if (data.volumes) {
+          volumeSeries.setData(data.volumes.map(v => ({ ...v, time: v.time + offsetSec })));
+        }
+        if (data.ma_volume) {
+          maVolumeSeries.setData(data.ma_volume.map(m => ({ ...m, time: m.time + offsetSec })));
+        }
+      } else if (data.strategy === "ema200_volume") {
+        // Exibe MME 200 (Roxa) e o Histograma de Volume + SMA de Volume
+        ema200Series.applyOptions({ color: "#a855f7", title: "MME 200" });
+        ema200Series.setData(data.ema200.map(e => ({ ...e, time: e.time + offsetSec })));
+
+        ema10Series.setData([]);
+        ema20Series.setData([]);
 
         if (data.volumes) {
           volumeSeries.setData(data.volumes.map(v => ({ ...v, time: v.time + offsetSec })));
@@ -582,6 +614,47 @@ async function loadStatus() {
         } else {
           trendBadge.className = "badge badge-neutral";
           trendBadge.textContent = activeItem.price_current > activeItem.ema20 ? "ACIMA DA MME 20" : "ABAIXO DA MME 20";
+        }
+
+      } else if (data.strategy === "ema200_volume") {
+        // Configuração dos Cards para Rompimento MME 200 + Volume
+        document.getElementById("card-title-2").textContent = "🟣 MME 200 (Preço)";
+        document.getElementById("card-badge-2").textContent = "Média 200";
+        document.getElementById("card-val-2").style.color = "var(--accent-purple)";
+        document.getElementById("card-val-2").textContent = `$ ${formatPrice(activeItem.ema200, dec)}`;
+        document.getElementById("card-sub-2").textContent = activeItem.price_current > activeItem.ema200 ? "Preço Acima da MME 200" : "Preço Abaixo da MME 200";
+
+        document.getElementById("card-title-3").textContent = "📊 Volume Candle";
+        document.getElementById("card-badge-3").textContent = `${activeItem.timeframe_display}`;
+        document.getElementById("card-val-3").style.color = "var(--accent-gold)";
+        document.getElementById("card-val-3").textContent = `${(activeItem.volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}`;
+        document.getElementById("card-sub-3").textContent = "Volume financeiro negociado";
+
+        document.getElementById("card-title-4").textContent = "📈 Média 20 Volume";
+        document.getElementById("card-val-4").style.color = "var(--accent-purple)";
+        document.getElementById("card-val-4").textContent = `${(activeItem.ma_volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}`;
+
+        if (activeItem.volume_confirmado) {
+          document.getElementById("card-badge-4").className = "badge badge-vol-ok";
+          document.getElementById("card-badge-4").textContent = "Volume Confirmado ✅";
+          document.getElementById("card-sub-4").textContent = `Superou a média em +${Math.round(activeItem.volume_ratio - 100)}%`;
+        } else {
+          document.getElementById("card-badge-4").className = "badge badge-vol-wait";
+          document.getElementById("card-badge-4").textContent = "Abaixo da Média ⏳";
+          document.getElementById("card-sub-4").textContent = `${activeItem.volume_ratio}% da média de volume`;
+        }
+
+        if (activeItem.has_signal) {
+          if (activeItem.signal_type === "COMPRA") {
+            trendBadge.className = "badge badge-buy";
+            trendBadge.textContent = "ROMPIMENTO COMPRA 🚀";
+          } else {
+            trendBadge.className = "badge badge-sell";
+            trendBadge.textContent = "ROMPIMENTO VENDA ⚠️";
+          }
+        } else {
+          trendBadge.className = "badge badge-neutral";
+          trendBadge.textContent = activeItem.price_current > activeItem.ema200 ? "ACIMA DA MME 200" : "ABAIXO DA MME 200";
         }
 
       } else {
@@ -759,6 +832,62 @@ function renderStatusTable(timeframes, strategy, symbol) {
           <td>$ ${formatPrice(item.price_current, dec)}</td>
           <td>$ ${item.price_close ? formatPrice(item.price_close, dec) : '-'}</td>
           <td style="color: var(--accent-blue); font-weight: 600;">$ ${formatPrice(item.ema20, dec)}</td>
+          <td style="color: var(--accent-gold); font-weight: 600;">${(item.volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}</td>
+          <td style="color: var(--accent-purple); font-weight: 600;">${(item.ma_volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}</td>
+          <td>${volBadge}</td>
+          <td>${sinalBadge}</td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+
+  } else if (strategy === "ema200_volume") {
+    thead.innerHTML = `
+      <tr>
+        <th>Tempo</th>
+        <th>Alertas WhatsApp</th>
+        <th>Preço Atual</th>
+        <th>Preço Rompimento</th>
+        <th style="color: var(--accent-purple);">🟣 MME 200 (Preço)</th>
+        <th style="color: var(--accent-gold);">📊 Volume Candle</th>
+        <th style="color: var(--accent-purple);">📉 Média 20 Vol</th>
+        <th>Volume Confirmado?</th>
+        <th>Sinal</th>
+      </tr>
+    `;
+
+    let html = "";
+    timeframes.forEach(item => {
+      const dec = getDecimals(item.price_current);
+      let volBadge = "";
+      if (item.volume_confirmado) {
+        volBadge = `<span class="badge badge-vol-ok">✅ Sim (${item.volume_ratio}%)</span>`;
+      } else {
+        volBadge = `<span class="badge badge-vol-wait">⏳ Baixo (${item.volume_ratio}%)</span>`;
+      }
+
+      let sinalBadge = '<span class="badge badge-neutral">Neutro</span>';
+      if (item.has_signal) {
+        if (item.signal_type === "COMPRA") {
+          sinalBadge = '<span class="badge badge-buy">🚀 COMPRA (MME 200 + Vol)</span>';
+        } else {
+          sinalBadge = '<span class="badge badge-sell">⚠️ VENDA (MME 200 + Vol)</span>';
+        }
+      }
+
+      const isMon = item.is_monitored !== undefined ? item.is_monitored : activeTimeframes.includes(item.timeframe);
+      const rowClass = isMon ? "" : "row-paused";
+      const monBadge = isMon
+        ? `<button class="btn-tf-toggle active" data-tf="${item.timeframe}" title="Monitorando ativamente. Clique para pausar alertas WhatsApp deste gráfico.">🟢 Monitorando</button>`
+        : `<button class="btn-tf-toggle paused" data-tf="${item.timeframe}" title="Pausado (Sem alertas WhatsApp). Clique para ativar monitoramento.">⚪ Pausado</button>`;
+
+      html += `
+        <tr class="${rowClass}" data-tf="${item.timeframe}" title="Clique na linha para visualizar o gráfico de ${item.timeframe_display}">
+          <td><strong>${item.timeframe_display}</strong></td>
+          <td>${monBadge}</td>
+          <td>$ ${formatPrice(item.price_current, dec)}</td>
+          <td>$ ${item.price_close ? formatPrice(item.price_close, dec) : '-'}</td>
+          <td style="color: var(--accent-purple); font-weight: 600;">$ ${item.ema200 ? formatPrice(item.ema200, dec) : '-'}</td>
           <td style="color: var(--accent-gold); font-weight: 600;">${(item.volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}</td>
           <td style="color: var(--accent-purple); font-weight: 600;">${(item.ma_volume || 0).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${baseAsset}</td>
           <td>${volBadge}</td>
@@ -976,7 +1105,10 @@ function setupEventListeners() {
       loadStatus();
       loadHistory();
 
-      showToast(`Estratégia ativada: ${currentStrategy === "ema20_volume" ? "Rompimento MME 20 + Volume" : "Triple EMA (10, 20, 200)"}`);
+      let stratName = "Triple EMA (10, 20, 200)";
+      if (currentStrategy === "ema20_volume") stratName = "Rompimento MME 20 + Volume";
+      else if (currentStrategy === "ema200_volume") stratName = "Rompimento MME 200 + Volume";
+      showToast(`Estratégia ativada: ${stratName}`);
     });
   });
 

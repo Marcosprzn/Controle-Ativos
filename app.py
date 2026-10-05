@@ -174,7 +174,24 @@ def background_monitor_worker():
                     except Exception as e_vol:
                         print(f"[Worker] Erro checando EMA20+Vol em {symbol} {tf_display}: {e_vol}")
 
-                    # 2. Estratégia Original: Triple EMA (10, 20, 200)
+                    # 2. Nova Estratégia: Rompimento MME 200 + Volume (Todos os Ativos)
+                    if len(df) >= 205:
+                        try:
+                            res_vol200 = Indicators.check_latest_signal_ema200_volume(df, wait_candle_close=Config.WAIT_CANDLE_CLOSE)
+                            if res_vol200 and res_vol200.get("has_signal"):
+                                candle_ts = str(res_vol200["candle_timestamp"])
+                                state_key = f"{symbol}_{cat}_{tf}_ema200_volume"
+
+                                if last_alerts.get(state_key) != candle_ts:
+                                    print(f"✨ [Worker] Rompimento MME 200+Vol em {symbol} [{tf_display}]! Disparando WhatsApp...")
+                                    msg = notifier.format_alert_message(res_vol200, symbol, tf_display, category=cat)
+                                    if notifier.send_message(msg):
+                                        last_alerts[state_key] = candle_ts
+                                        save_alerts_state()
+                        except Exception as e_vol200:
+                            print(f"[Worker] Erro checando EMA200+Vol em {symbol} {tf_display}: {e_vol200}")
+
+                    # 3. Estratégia Original: Triple EMA (10, 20, 200)
                     if len(df) >= 205:
                         try:
                             res_triple = Indicators.check_latest_signal(df, wait_candle_close=Config.WAIT_CANDLE_CLOSE)
@@ -387,6 +404,25 @@ def api_status():
                     "candle_datetime": res["candle_datetime"],
                     "strategy": "ema20_volume"
                 })
+            elif strat == "ema200_volume":
+                res = Indicators.check_latest_signal_ema200_volume(df, wait_candle_close=Config.WAIT_CANDLE_CLOSE)
+                results.append({
+                    "timeframe": tf,
+                    "timeframe_display": tf_display,
+                    "is_monitored": is_mon,
+                    "price_current": res["price_current"],
+                    "price_close": res["price_close"],
+                    "ema200": res["ema200"],
+                    "volume": res["volume"],
+                    "ma_volume": res["ma_volume"],
+                    "volume_confirmado": res["volume_confirmado"],
+                    "volume_ratio": res["volume_ratio"],
+                    "has_signal": res["has_signal"],
+                    "signal_type": res["signal_type"],
+                    "message": res["message"],
+                    "candle_datetime": res["candle_datetime"],
+                    "strategy": "ema200_volume"
+                })
             else:
                 res = Indicators.check_latest_signal(df, wait_candle_close=Config.WAIT_CANDLE_CLOSE)
                 results.append({
@@ -474,6 +510,40 @@ def api_chart_data():
             "strategy": "ema20_volume",
             "category": category
         })
+    elif strat == "ema200_volume":
+        df_analisado = Indicators.apply_strategy_ema200_volume(df)
+        ma_vol_data = []
+        ema200_data = []
+
+        for _, row in df_analisado.iterrows():
+            time_sec = int(row["timestamp"] / 1000)
+            candles.append({
+                "time": time_sec,
+                "open": float(row["open"]),
+                "high": float(row["high"]),
+                "low": float(row["low"]),
+                "close": float(row["close"])
+            })
+            is_up = row["close"] >= row["open"]
+            vol_val = float(row["volume"])
+            volumes.append({
+                "time": time_sec,
+                "value": vol_val,
+                "color": "rgba(16, 185, 129, 0.6)" if is_up else "rgba(239, 68, 68, 0.6)"
+            })
+            if not pd.isna(row["ema200"]):
+                ema200_data.append({"time": time_sec, "value": float(row["ema200"])})
+            if not pd.isna(row["ma_volume"]):
+                ma_vol_data.append({"time": time_sec, "value": float(row["ma_volume"])})
+
+        return jsonify({
+            "candles": candles,
+            "volumes": volumes,
+            "ma_volume": ma_vol_data,
+            "ema200": ema200_data,
+            "strategy": "ema200_volume",
+            "category": category
+        })
     else:
         df_analisado = Indicators.apply_strategy(df)
         ema9_data = []
@@ -541,6 +611,25 @@ def api_history():
                         "volume": vol,
                         "ma_volume": ma_vol,
                         "message": f"Preço rompeu MME 20 para {'CIMA' if tipo == 'COMPRA' else 'BAIXO'} com Volume Confirmado ({vol:,.1f} > {ma_vol:,.1f})"
+                    })
+            elif strat == "ema200_volume":
+                df_analisado = Indicators.apply_strategy_ema200_volume(df)
+                sinais = df_analisado[df_analisado["compra"] | df_analisado["venda"]]
+                for _, row in sinais.tail(3).iterrows():
+                    tipo = "COMPRA" if row["compra"] else "VENDA"
+                    vol = float(row["volume"])
+                    ma_vol = float(row["ma_volume"]) if pd.notnull(row["ma_volume"]) else 0.0
+                    history.append({
+                        "symbol": symbol,
+                        "strategy": "ema200_volume",
+                        "timeframe": tf_display,
+                        "datetime": row["datetime"].strftime("%d/%m %H:%M"),
+                        "type": tipo,
+                        "price": float(row["close"]),
+                        "ema200": float(row["ema200"]),
+                        "volume": vol,
+                        "ma_volume": ma_vol,
+                        "message": f"Preço rompeu MME 200 para {'CIMA' if tipo == 'COMPRA' else 'BAIXO'} com Volume Confirmado ({vol:,.1f} > {ma_vol:,.1f})"
                     })
             else:
                 df_analisado = Indicators.apply_strategy(df)

@@ -63,12 +63,35 @@ class WhatsAppNotifier:
                 f"📊 *Preço Atual:* $ {preco_current:,.2f}\n\n"
                 f"📈 *Parâmetros do Rompimento:*\n"
                 f" 🔵 *MME 20 (Preço):*      $ {ema20:,.2f}\n"
-                f" 📊 *Volume Candle:*      {vol:,.2f} BTC\n"
-                f" 📉 *Média 20 do Volume:* {ma_vol:,.2f} BTC ({ratio:.1f}%)\n"
+                f" 📊 *Volume Candle:*      {vol:,.2f}\n"
+                f" 📉 *Média 20 do Volume:* {ma_vol:,.2f} ({ratio:.1f}%)\n"
                 f" ✅ *Volume Confirmado:*  Sim (> Média 20)\n\n"
                 f"⚡ *Gatilho:* {motivo}\n"
                 f"⏰ *Horário:* {data_hora}\n\n"
                 f"🤖 _Bot Bybit Rompimento MME 20 + Volume_"
+            )
+            return msg
+        elif strategy == "ema200_volume":
+            ema200 = signal_data.get("ema200", 0.0)
+            vol = signal_data.get("volume", 0.0)
+            ma_vol = signal_data.get("ma_volume", 0.0)
+            ratio = signal_data.get("volume_ratio", 100.0)
+
+            msg = (
+                f"{emoji_header} *ALERTA DE ROMPIMENTO: {direcao}* {emoji_header}\n"
+                f"📊 *Estratégia:* Rompimento MME 200 + Volume\n\n"
+                f"🪙 *Ativo:* {symbol} ({market_label})\n"
+                f"⏱️ *Tempo Gráfico:* {timeframe_display}\n"
+                f"💵 *Preço do Rompimento:* $ {preco_close:,.2f}\n"
+                f"📊 *Preço Atual:* $ {preco_current:,.2f}\n\n"
+                f"📈 *Parâmetros do Rompimento:*\n"
+                f" 🟣 *MME 200 (Preço):*     $ {ema200:,.2f}\n"
+                f" 📊 *Volume Candle:*      {vol:,.2f}\n"
+                f" 📉 *Média 20 do Volume:* {ma_vol:,.2f} ({ratio:.1f}%)\n"
+                f" ✅ *Volume Confirmado:*  Sim (> Média 20)\n\n"
+                f"⚡ *Gatilho:* {motivo}\n"
+                f"⏰ *Horário:* {data_hora}\n\n"
+                f"🤖 _Bot Bybit Rompimento MME 200 + Volume_"
             )
             return msg
         else:
