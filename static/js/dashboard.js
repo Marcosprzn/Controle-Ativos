@@ -19,12 +19,16 @@ let currentTzOffsetHours = -2; // Padrão Bybit (-2h / 15h)
 let activeTimeframes = ["30", "60"]; // 30m e 1h monitorados ativamente por padrão
 let allSymbols = ["BTCUSDT", "ETHUSDT", "HBARUSDT", "LINKUSDT", "SUIUSDT", "AAVEUSDT", "ONDOUSDT", "DOGEUSDT", "ENAUSDT"];
 let activeSymbols = ["BTCUSDT", "ETHUSDT", "HBARUSDT", "LINKUSDT", "SUIUSDT", "AAVEUSDT", "ONDOUSDT", "DOGEUSDT", "ENAUSDT"];
+let targetGroupName = "Bybit";
+let isGroupFound = false;
+let detectedGroups = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   initChart();
   updateLegendsAndControls();
   loadInitialStrategy();
   loadSymbols();
+  loadWhatsAppConfig();
   loadChartData(currentTf);
   loadStatus();
   loadHistory();
@@ -1049,32 +1053,54 @@ function setupEventListeners() {
     showToast(`Histórico de rompimentos atualizado para ${currentSymbol}!`);
   });
 
-  // Botão Testar WhatsApp
-  document.getElementById("btn-test-whatsapp").addEventListener("click", async () => {
-    showToast("Disparando teste para o WhatsApp (+5581991798590)...");
-    try {
-      const res = await fetch("/api/test-whatsapp", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        showToast("✅ Mensagem de teste enviada para " + data.phone + "!");
-      } else {
-        showToast(`⚠️ Alerta exibido no console (${data.provider})`);
+  // Botão Testar WhatsApp (Navbar)
+  const btnTestWa = document.getElementById("btn-test-whatsapp");
+  if (btnTestWa) {
+    btnTestWa.addEventListener("click", async () => {
+      showToast(`Disparando alerta de teste para o grupo "${targetGroupName}"...`);
+      try {
+        const res = await fetch("/api/test-whatsapp", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✅ Alerta de teste entregue no grupo "${data.group || targetGroupName}"!`);
+        } else {
+          showToast(`⚠️ Alerta exibido no console (${data.provider}) ou WhatsApp desconectado.`);
+        }
+      } catch (err) {
+        showToast("❌ Erro ao disparar teste de WhatsApp");
       }
-    } catch (err) {
-      showToast("❌ Erro ao disparar teste de WhatsApp");
-    }
-  });
+    });
+  }
 
-  // Modal WhatsApp
+  // Modal WhatsApp e Configurações de Grupo
   const waModal = document.getElementById("wa-modal");
   const btnOpenModal = document.getElementById("btn-whatsapp-modal");
   const btnCloseModal = document.getElementById("btn-close-modal");
   const btnDisconnect = document.getElementById("btn-disconnect-wa");
+  const btnNavGroup = document.getElementById("btn-nav-group-badge");
+  const btnSaveGroup = document.getElementById("btn-save-wa-group");
+  const inputGroupName = document.getElementById("input-wa-group-name");
+  const btnRefreshGroups = document.getElementById("btn-refresh-detected-groups");
+  const btnTestModalGroup = document.getElementById("btn-test-modal-group");
 
   if (btnOpenModal) {
     btnOpenModal.addEventListener("click", () => {
       waModal.classList.add("active");
       checkWhatsAppStatus();
+      loadWhatsAppConfig();
+      loadDetectedGroups();
+    });
+  }
+
+  if (btnNavGroup) {
+    btnNavGroup.addEventListener("click", () => {
+      waModal.classList.add("active");
+      checkWhatsAppStatus();
+      loadWhatsAppConfig();
+      loadDetectedGroups();
+      if (inputGroupName) {
+        setTimeout(() => inputGroupName.focus(), 200);
+      }
     });
   }
 
@@ -1088,6 +1114,40 @@ function setupEventListeners() {
     waModal.addEventListener("click", (e) => {
       if (e.target === waModal) {
         waModal.classList.remove("active");
+      }
+    });
+  }
+
+  if (btnSaveGroup && inputGroupName) {
+    btnSaveGroup.addEventListener("click", () => {
+      saveWhatsAppGroupName(inputGroupName.value);
+    });
+    inputGroupName.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        saveWhatsAppGroupName(inputGroupName.value);
+      }
+    });
+  }
+
+  if (btnRefreshGroups) {
+    btnRefreshGroups.addEventListener("click", () => {
+      loadDetectedGroups();
+    });
+  }
+
+  if (btnTestModalGroup) {
+    btnTestModalGroup.addEventListener("click", async () => {
+      showToast(`Enviando teste no grupo "${targetGroupName}"...`);
+      try {
+        const res = await fetch("/api/test-whatsapp", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✅ Teste entregue no grupo "${data.group || targetGroupName}"!`);
+        } else {
+          showToast("⚠️ Falha ao entregar mensagem no grupo.");
+        }
+      } catch (err) {
+        showToast("❌ Erro ao conectar ao servidor.");
       }
     });
   }
@@ -1109,6 +1169,152 @@ function setupEventListeners() {
       }
     });
   }
+}
+
+// Carrega configuração de grupo persistente do WhatsApp
+async function loadWhatsAppConfig() {
+  try {
+    const res = await fetch("/api/whatsapp/config");
+    const data = await res.json();
+    if (data && data.target_group) {
+      targetGroupName = data.target_group;
+      isGroupFound = !!data.group_found;
+      updateGroupUI(data);
+    }
+  } catch (err) {
+    console.warn("Aviso ao carregar config do WhatsApp:", err);
+  }
+}
+
+// Atualiza os componentes visuais do grupo
+function updateGroupUI(data) {
+  const headerName = document.getElementById("header-group-name");
+  const footerName = document.getElementById("footer-group-name");
+  const inputName = document.getElementById("input-wa-group-name");
+  const dot = document.getElementById("header-group-dot");
+  const statusBox = document.getElementById("wa-group-status-box");
+  const statusText = document.getElementById("wa-group-status-text");
+
+  if (headerName) headerName.textContent = targetGroupName;
+  if (footerName) footerName.textContent = targetGroupName;
+  if (inputName && document.activeElement !== inputName) {
+    inputName.value = targetGroupName;
+  }
+
+  if (data && data.group_found) {
+    if (dot) {
+      dot.textContent = "🟢";
+      dot.title = `Grupo "${targetGroupName}" conectado e pronto para alertas`;
+    }
+    if (statusBox) {
+      statusBox.className = "wa-group-status-box found";
+    }
+    const count = data.group_info?.participantsCount;
+    if (statusText) {
+      statusText.innerHTML = `✅ Grupo <strong>"${targetGroupName}"</strong> localizado com sucesso! ${count ? `(${count} participantes)` : ''}`;
+    }
+  } else {
+    if (dot) {
+      dot.textContent = "⚠️";
+      dot.title = `Grupo "${targetGroupName}" ainda não foi encontrado no WhatsApp conectado`;
+    }
+    if (statusBox) {
+      statusBox.className = "wa-group-status-box not-found";
+    }
+    if (statusText) {
+      statusText.innerHTML = `⚠️ Grupo <strong>"${targetGroupName}"</strong> não encontrado. Verifique se o seu número pertence ao grupo ou selecione abaixo.`;
+    }
+  }
+
+  if (data && Array.isArray(data.available_groups) && data.available_groups.length > 0) {
+    renderDetectedGroups(data.available_groups);
+  }
+}
+
+// Salva o novo nome de grupo
+async function saveWhatsAppGroupName(newName) {
+  const clean = (newName || "").trim();
+  if (!clean) {
+    showToast("⚠️ O nome do grupo não pode ser vazio");
+    return;
+  }
+  showToast(`Salvando grupo "${clean}"...`);
+  try {
+    const res = await fetch("/api/whatsapp/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_group: clean })
+    });
+    const data = await res.json();
+    if (data.success) {
+      targetGroupName = data.target_group;
+      isGroupFound = !!data.group_found;
+      updateGroupUI(data);
+      if (data.group_found) {
+        showToast(`✅ Grupo "${targetGroupName}" configurado e localizado com sucesso!`);
+      } else {
+        showToast(`💾 Grupo salvo como "${targetGroupName}". Aguardando detecção no WhatsApp.`);
+      }
+    } else {
+      showToast(`❌ Erro ao salvar grupo: ${data.error || 'Falha na requisição'}`);
+    }
+  } catch (err) {
+    showToast("❌ Erro de conexão ao salvar grupo");
+  }
+}
+
+// Busca e lista todos os grupos que o número participa
+async function loadDetectedGroups() {
+  const container = document.getElementById("detected-groups-chips");
+  if (container) {
+    container.innerHTML = '<span style="font-size: 0.74rem; color: var(--accent-cyan);">Buscando grupos no WhatsApp...</span>';
+  }
+  try {
+    const res = await fetch("/api/whatsapp/groups");
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.groups)) {
+      detectedGroups = data.groups;
+      renderDetectedGroups(detectedGroups);
+      // Revalida se o grupo atual está entre eles
+      loadWhatsAppConfig();
+    } else {
+      if (container) {
+        container.innerHTML = '<span style="font-size: 0.74rem; color: var(--text-muted);">Nenhum grupo encontrado ou WhatsApp offline.</span>';
+      }
+    }
+  } catch (err) {
+    if (container) {
+      container.innerHTML = '<span style="font-size: 0.74rem; color: var(--accent-red);">Erro ao consultar grupos.</span>';
+    }
+  }
+}
+
+// Renderiza botões/chips de grupos participantes
+function renderDetectedGroups(groups) {
+  const container = document.getElementById("detected-groups-chips");
+  if (!container) return;
+
+  if (!groups || groups.length === 0) {
+    container.innerHTML = '<span style="font-size: 0.74rem; color: var(--text-muted);">Nenhum grupo detectado na conta.</span>';
+    return;
+  }
+
+  container.innerHTML = "";
+  groups.forEach(g => {
+    const isCurrent = g.name.toLowerCase() === targetGroupName.toLowerCase();
+    const chip = document.createElement("button");
+    chip.className = `group-chip-btn ${isCurrent ? 'active' : ''}`;
+    chip.title = `Clique para definir "${g.name}" como grupo dos alertas (${g.participantsCount} membros)`;
+    chip.innerHTML = `<span>👥</span> <strong>${g.name}</strong> <span style="font-size: 0.65rem; opacity: 0.75;">(${g.participantsCount})</span>`;
+
+    chip.addEventListener("click", () => {
+      const input = document.getElementById("input-wa-group-name");
+      if (input) input.value = g.name;
+      saveWhatsAppGroupName(g.name);
+    });
+
+    container.appendChild(chip);
+  });
 }
 
 let isCheckingWA = false;
@@ -1134,6 +1340,13 @@ async function checkWhatsAppStatus() {
       if (scanView) scanView.style.display = "none";
       if (connectedView) connectedView.style.display = "flex";
       if (connectedNumber) connectedNumber.textContent = `+${data.phone || 'Conectado'}`;
+
+      // Atualiza status do grupo se retornado pelo Baileys
+      if (data.target_group) {
+        targetGroupName = data.target_group;
+        isGroupFound = !!data.group_found;
+        updateGroupUI(data);
+      }
     } else {
       if (badgeDot) badgeDot.className = "status-indicator-dot";
       if (btnLabel) btnLabel.textContent = "Conectar WhatsApp";
@@ -1163,6 +1376,7 @@ async function checkWhatsAppStatus() {
 
 function showToast(message) {
   const toast = document.getElementById("toast");
+  if (!toast) return;
   toast.textContent = message;
   toast.classList.add("show");
   setTimeout(() => {

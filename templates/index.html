@@ -34,8 +34,13 @@
         <span id="bot-status-text">Monitorando Bybit</span>
       </div>
 
-      <button class="btn btn-outline" id="btn-whatsapp-modal" title="Conectar ou gerenciar WhatsApp via QR Code">
-        📱 <span id="wa-btn-label">WhatsApp (QR Code)</span>
+      <div class="group-nav-badge" id="btn-nav-group-badge" title="Grupo WhatsApp de destino dos alertas (clique para configurar)">
+        👥 Grupo: <strong id="header-group-name">Bybit</strong>
+        <span id="header-group-dot" class="group-dot-badge">🟢</span>
+      </div>
+
+      <button class="btn btn-outline" id="btn-whatsapp-modal" title="Conectar ou gerenciar WhatsApp e Grupos">
+        📱 <span id="wa-btn-label">WhatsApp</span>
         <span id="wa-badge-status" class="status-indicator-dot"></span>
       </button>
 
@@ -43,8 +48,8 @@
         🔄 Atualizar
       </button>
 
-      <button class="btn btn-whatsapp" id="btn-test-whatsapp" title="Enviar teste para +5581991798590">
-        📲 Testar Envio
+      <button class="btn btn-whatsapp" id="btn-test-whatsapp" title="Enviar alerta de teste para o grupo configurado">
+        📲 Testar no Grupo
       </button>
     </div>
   </header>
@@ -273,17 +278,61 @@
         </div>
 
         <!-- Estado 2: Conectado com sucesso -->
-        <div id="wa-connected-view" style="display: none; flex-direction: column; align-items: center; gap: 18px; padding: 20px 0;">
+        <div id="wa-connected-view" style="display: none; flex-direction: column; align-items: center; gap: 14px; padding: 10px 0;">
           <div class="connected-badge-big">
             <span style="font-size: 2.2rem;">✅</span>
           </div>
           <div style="text-align: center;">
             <h4 style="font-size: 1.15rem; color: var(--accent-green); margin-bottom: 4px;">WhatsApp Conectado com Sucesso!</h4>
-            <p style="font-size: 0.85rem; color: var(--text-secondary);">Número conectado: <strong id="wa-connected-number" style="color: var(--text-primary);">+--</strong></p>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Os alertas de rompimento estão sendo disparados automaticamente para este número.</p>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">Número pareado: <strong id="wa-connected-number" style="color: var(--text-primary);">+--</strong></p>
           </div>
-          <button class="btn btn-outline" id="btn-disconnect-wa" style="border-color: var(--accent-red); color: var(--accent-red);">
-            🛑 Desconectar Sessão
+        </div>
+
+        <!-- Configuração do Grupo WhatsApp de Destino -->
+        <div class="wa-group-card">
+          <div class="wa-group-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.25rem;">👥</span>
+              <div>
+                <h5 style="margin: 0; font-size: 0.92rem; font-weight: 700; color: #fff;">Grupo de Destino dos Alertas</h5>
+                <span style="font-size: 0.73rem; color: var(--text-muted);">O bot procura este grupo no WhatsApp e envia todos os sinais nele</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <input type="text" id="input-wa-group-name" class="custom-input" placeholder="Nome do grupo (ex: Bybit)" value="Bybit" style="flex: 1;" />
+            <button class="btn btn-primary" id="btn-save-wa-group" style="white-space: nowrap;">
+              💾 Salvar Grupo
+            </button>
+          </div>
+
+          <!-- Status do Grupo Encontrado -->
+          <div id="wa-group-status-box" class="wa-group-status-box" style="margin-top: 10px;">
+            <span id="wa-group-status-text">🔍 Verificando grupo "Bybit"...</span>
+          </div>
+
+          <!-- Grupos Detectados na Conta do WhatsApp -->
+          <div class="detected-groups-wrapper" style="margin-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 0.74rem; font-weight: 600; color: var(--text-secondary);">
+                Grupos encontrados na sua conta (clique para selecionar):
+              </span>
+              <button class="btn-group-refresh" id="btn-refresh-detected-groups" title="Recarregar lista de grupos do WhatsApp">🔄 Atualizar</button>
+            </div>
+            <div class="detected-groups-chips" id="detected-groups-chips">
+              <span style="font-size: 0.74rem; color: var(--text-muted);">Conecte o WhatsApp para listar seus grupos.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botões de Ação do Modal -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; pt-2; border-top: 1px solid var(--border-color); padding-top: 14px;">
+          <button class="btn btn-outline" id="btn-test-modal-group" style="font-size: 0.82rem;">
+            📲 Enviar Teste no Grupo
+          </button>
+          <button class="btn btn-outline" id="btn-disconnect-wa" style="border-color: var(--accent-red); color: var(--accent-red); font-size: 0.82rem;">
+            🛑 Desconectar WhatsApp
           </button>
         </div>
       </div>
@@ -352,7 +401,7 @@
 
   <!-- Rodapé -->
   <footer>
-    Bybit Triple EMA Bot &bull; Monitorando BTCUSDT &bull; Alertas automáticos via WhatsApp: +55 (81) 99179-8590
+    Bybit Triple EMA Bot &bull; Monitorando Criptos Bybit &bull; Alertas no Grupo WhatsApp: <strong id="footer-group-name" style="color: var(--accent-cyan);">Bybit</strong>
   </footer>
 
   <!-- Script JS do Dashboard -->

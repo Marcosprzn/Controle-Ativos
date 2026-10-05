@@ -1,3 +1,5 @@
+import os
+import json
 import sys
 import urllib.parse
 import requests
@@ -16,6 +18,20 @@ if sys.platform == "win32":
 class WhatsAppNotifier:
     def __init__(self):
         self.provider = Config.WHATSAPP_PROVIDER
+
+    @staticmethod
+    def get_target_group() -> str:
+        """Lê o nome do grupo configurado em whatsapp_config.json ou usa o padrão do Config."""
+        cfg_path = os.path.join(os.path.dirname(__file__), "whatsapp_config.json")
+        try:
+            if os.path.exists(cfg_path):
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if data and data.get("target_group"):
+                        return str(data["target_group"]).strip()
+        except Exception:
+            pass
+        return getattr(Config, "WHATSAPP_GROUP", "Bybit").strip()
 
     def format_alert_message(self, signal_data: dict, symbol: str, timeframe_display: str, category: str = "linear") -> str:
         """
@@ -102,21 +118,26 @@ class WhatsAppNotifier:
             print(message)
             return False
 
-    def _send_baileys(self, message: str) -> bool:
+    def _send_baileys(self, message: str, target_group: str = None) -> bool:
         """
-        Envia mensagem via Baileys (Node.js nativo na porta 3001).
+        Envia mensagem via Baileys (Node.js nativo na porta 3001) para o Grupo configurado no WhatsApp.
         """
-        phone = self.clean_phone_number(Config.CALLMEBOT_PHONE)
+        group_name = target_group or self.get_target_group()
         url = "http://127.0.0.1:3001/send"
+        payload = {
+            "group_name": group_name,
+            "message": message
+        }
         try:
-            res = requests.post(url, json={"number": phone, "message": message}, timeout=10)
+            res = requests.post(url, json=payload, timeout=12)
             data = res.json()
             if res.status_code == 200 and data.get("success"):
-                print(f"[Baileys] ✅ Mensagem enviada via WhatsApp para {phone}!")
+                label = data.get("label", f"Grupo '{group_name}'")
+                print(f"[Baileys] ✅ Alerta entregue com sucesso no WhatsApp ({label})!")
                 return True
             else:
-                err_msg = data.get("error", "WhatsApp não conectado no QR Code")
-                print(f"[Baileys] ⚠️ Falha no envio: {err_msg}")
+                err_msg = data.get("error", "WhatsApp não conectado no QR Code ou grupo não encontrado")
+                print(f"[Baileys] ⚠️ Falha no envio para o grupo '{group_name}': {err_msg}")
                 return False
         except Exception as e:
             print(f"[Baileys] ❌ Erro de conexão com serviço Baileys: {e}")

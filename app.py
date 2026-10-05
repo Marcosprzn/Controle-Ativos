@@ -589,22 +589,72 @@ def api_whatsapp_disconnect():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+@app.route("/api/whatsapp/config", methods=["GET", "POST"])
+def api_whatsapp_config():
+    """Consulta ou atualiza o nome do grupo WhatsApp configurado para os alertas."""
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        new_group = data.get("target_group", "").strip()
+        if not new_group:
+            return jsonify({"success": False, "error": "Nome do grupo não pode ser vazio"}), 400
+
+        # Salva localmente em whatsapp_config.json
+        cfg_file = os.path.join(os.path.dirname(__file__), "whatsapp_config.json")
+        try:
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump({"target_group": new_group}, f, indent=2)
+        except Exception as fe:
+            print(f"[Config] Erro ao salvar arquivo local: {fe}")
+
+        try:
+            r = requests.post("http://127.0.0.1:3001/config", json={"target_group": new_group}, timeout=6)
+            return jsonify(r.json())
+        except Exception:
+            return jsonify({
+                "success": True,
+                "target_group": new_group,
+                "group_found": False,
+                "warning": "Configuração salva localmente. Microserviço Baileys em atualização."
+            })
+    else:
+        try:
+            r = requests.get("http://127.0.0.1:3001/config", timeout=4)
+            return jsonify(r.json())
+        except Exception:
+            group_name = notifier.get_target_group()
+            return jsonify({
+                "success": True,
+                "target_group": group_name,
+                "group_found": False,
+                "available_groups": []
+            })
+
+@app.route("/api/whatsapp/groups")
+def api_whatsapp_groups():
+    """Lista todos os grupos do WhatsApp que o número conectado participa."""
+    try:
+        r = requests.get("http://127.0.0.1:3001/groups", timeout=6)
+        return jsonify(r.json())
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "groups": []})
+
 @app.route("/api/test-whatsapp", methods=["POST"])
 def api_test_whatsapp():
-    """Dispara teste imediato para o WhatsApp configurado."""
-    phone_dest = notifier.clean_phone_number(Config.CALLMEBOT_PHONE)
+    """Dispara teste imediato para o grupo WhatsApp configurado."""
+    group_name = notifier.get_target_group()
     teste_msg = (
         "🟢 🚀 *TESTE DE ALERTA: BOT BYBIT DASHBOARD* 🚀 🟢\n\n"
         f"🪙 *Ativo:* {Config.SYMBOL}\n"
-        f"📱 *Destino:* {phone_dest}\n"
-        "⚡ *Status:* Sistema web e WhatsApp Baileys conectados!\n"
-        f"⏰ *Horário:* {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        f"👥 *Grupo de Destino:* {group_name}\n"
+        "⚡ *Status:* Sistema web e WhatsApp Baileys conectados ao grupo!\n"
+        f"⏰ *Horário:* {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
+        "🤖 _Bot Bybit Rompimento MME 20 + Volume_"
     )
     sucesso = notifier.send_message(teste_msg)
     return jsonify({
         "success": sucesso,
         "provider": Config.WHATSAPP_PROVIDER,
-        "phone": phone_dest
+        "group": group_name
     })
 
 def open_browser():
